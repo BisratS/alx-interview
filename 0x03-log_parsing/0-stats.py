@@ -1,37 +1,38 @@
-#!/usr/bin/python3
-'''Module for log parsing script.'''
 import sys
+import signal
+import re
 
-if __name__ == "__main__":
-    size = [0]
-    codes = {200: 0, 301: 0, 400: 0, 401: 0, 403: 0, 404: 0, 405: 0, 500: 0}
+# Initialize counters
+total_size = 0
+status_codes = {200: 0, 301: 0, 400: 0, 401: 0, 403: 0, 404: 0, 405: 0, 500: 0}
+line_count = 0
 
-    def check_match(line):
-        '''Checks for regexp match in line.'''
-        try:
-            line = line[:-1]
-            words = line.split(" ")
-            size[0] += int(words[-1])
-            code = int(words[-2])
-            if code in codes:
-                codes[code] += 1
-        except:
-            pass
+# Define the log line pattern
+pattern = re.compile(r'^\S+ - \[\S+\] "GET /projects/260 HTTP/1.1" (\d+) (\d+)$')
 
-    def print_stats():
-        '''Prints accumulated statistics.'''
-        print("File size: {}".format(size[0]))
-        for k in sorted(codes.keys()):
-            if codes[k]:
-                print("{}: {}".format(k, codes[k]))
-    i = 1
-    try:
-        for line in sys.stdin:
-            check_match(line)
-            if i % 10 == 0:
-                print_stats()
-            i += 1
-    except KeyboardInterrupt:
-        print_stats()
-        raise
+def print_stats():
+    print(f"Total file size: {total_size}")
+    for code in sorted(status_codes.keys()):
+        if status_codes[code] > 0:
+            print(f"{code}: {status_codes[code]}")
+
+def handle_sigint(sig, frame):
     print_stats()
+    sys.exit(0)
+
+# Register the signal handler
+signal.signal(signal.SIGINT, handle_sigint)
+
+try:
+    for line in sys.stdin:
+        match = pattern.match(line)
+        if match:
+            status_code, file_size = map(int, match.groups())
+            if status_code in status_codes:
+                status_codes[status_code] += 1
+                total_size += file_size
+        line_count += 1
+        if line_count % 10 == 0:
+            print_stats()
+except KeyboardInterrupt:
+    pass
