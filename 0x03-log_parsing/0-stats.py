@@ -1,38 +1,41 @@
+#!/usr/bin/python3
+"""Input stats"""
 import sys
-import signal
-import re
 
-# Initialize variables
-total_size = 0
-status_codes = {200: 0, 301: 0, 400: 0, 401: 0, 403: 0, 404: 0, 405: 0, 500: 0}
-line_count = 0
+stats = {
+    '200': 0,
+    '301': 0,
+    '400': 0,
+    '401': 0,
+    '403': 0,
+    '404': 0,
+    '405': 0,
+    '500': 0
+}
+sizes = [0]
 
-# Define the pattern for the log line
-pattern = r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) - \[(.*?)\] "GET /projects/260 HTTP/1.1" (\d{3}) (\d+)'
 
 def print_stats():
-    global total_size, status_codes
-    print(f"Total file size: {total_size}")
-    for code in sorted(status_codes.keys()):
-        if status_codes[code] > 0:
-            print(f"{code}: {status_codes[code]}")
+    print('File size: {}'.format(sum(sizes)))
+    for s_code, count in sorted(stats.items()):
+        if count:
+            print('{}: {}'.format(s_code, count))
 
-def handle_sigint(sig, frame):
-    print("\n--- Interrupted ---")
-    print_stats()
-    sys.exit(0)
-
-# Register the signal handler
-signal.signal(signal.SIGINT, handle_sigint)
 
 try:
-    for line in sys.stdin:
-        match = re.search(pattern, line)
-        if match:
-            total_size += int(match.group(4))
-            status_codes[int(match.group(3))] += 1
-        line_count += 1
-        if line_count % 10 == 0:
+    for i, line in enumerate(sys.stdin, start=1):
+        matches = line.rstrip().split()
+        try:
+            status_code = matches[-2]
+            file_size = matches[-1]
+            if status_code in stats.keys():
+                stats[status_code] += 1
+            sizes.append(int(file_size))
+        except Exception:
+            pass
+        if i % 10 == 0:
             print_stats()
+    print_stats()
 except KeyboardInterrupt:
-    pass
+    print_stats()
+    raise
